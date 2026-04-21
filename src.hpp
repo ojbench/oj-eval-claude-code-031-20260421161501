@@ -38,6 +38,12 @@ public:
         }
     }
 
+    void append(int x) {
+        if (ptr && !ptr->is_int) {
+            ptr->list.push_back(pylist(x));
+        }
+    }
+
     pylist pop() {
         if (ptr && !ptr->is_int && !ptr->list.empty()) {
             pylist last = ptr->list.back();
@@ -153,7 +159,9 @@ public:
                 if (item.ptr && item.ptr.use_count() == 1 && !item.ptr->is_int) {
                     std::vector<pylist> child_list;
                     child_list.swap(item.ptr->list);
-                    current_list.insert(current_list.end(), std::make_move_iterator(child_list.begin()), std::make_move_iterator(child_list.end()));
+                    for(auto& child : child_list) {
+                        current_list.push_back(std::move(child));
+                    }
                 }
             }
         }
