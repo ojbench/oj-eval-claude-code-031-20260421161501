@@ -14,14 +14,18 @@ class pylist {
         Data() : is_int(false), val(0) {}
         Data(int v) : is_int(true), val(v) {}
     };
+
     std::shared_ptr<Data> ptr;
 
 public:
     pylist() : ptr(std::make_shared<Data>()) {}
     pylist(int v) : ptr(std::make_shared<Data>(v)) {}
 
-    pylist(const pylist& other) = default;
-    pylist& operator=(const pylist& other) = default;
+    pylist(const pylist& other) : ptr(other.ptr) {}
+    pylist& operator=(const pylist& other) {
+        ptr = other.ptr;
+        return *this;
+    }
 
     pylist& operator=(int v) {
         ptr = std::make_shared<Data>(v);
@@ -29,13 +33,13 @@ public:
     }
 
     void append(const pylist &x) {
-        if (!ptr->is_int) {
+        if (ptr && !ptr->is_int) {
             ptr->list.push_back(x);
         }
     }
 
     pylist pop() {
-        if (!ptr->is_int && !ptr->list.empty()) {
+        if (ptr && !ptr->is_int && !ptr->list.empty()) {
             pylist last = ptr->list.back();
             ptr->list.pop_back();
             return last;
@@ -44,12 +48,12 @@ public:
     }
 
     pylist &operator[](size_t i) {
-        if (ptr->is_int) return *this; // Should not happen based on problem description
+        if (ptr->is_int) return *this;
         return ptr->list[i];
     }
 
     const pylist &operator[](size_t i) const {
-        if (ptr->is_int) return *this; // Should not happen
+        if (ptr->is_int) return *this;
         return ptr->list[i];
     }
 
@@ -114,11 +118,12 @@ public:
     friend bool operator!=(const pylist& a, int b) { return (int)a != b; }
 
     operator int() const {
-        return ptr->is_int ? ptr->val : 0;
+        return (ptr && ptr->is_int) ? ptr->val : 0;
     }
 
     friend std::ostream &operator<<(std::ostream &os, const pylist &ls) {
         static std::set<const Data*> visited;
+        if (!ls.ptr) return os;
         if (ls.ptr->is_int) {
             os << ls.ptr->val;
         } else {
@@ -136,6 +141,22 @@ public:
             }
         }
         return os;
+    }
+
+    ~pylist() {
+        if (ptr && ptr.use_count() == 1 && !ptr->is_int) {
+            std::vector<pylist> current_list;
+            current_list.swap(ptr->list);
+            while (!current_list.empty()) {
+                pylist item = std::move(current_list.back());
+                current_list.pop_back();
+                if (item.ptr && item.ptr.use_count() == 1 && !item.ptr->is_int) {
+                    std::vector<pylist> child_list;
+                    child_list.swap(item.ptr->list);
+                    current_list.insert(current_list.end(), std::make_move_iterator(child_list.begin()), std::make_move_iterator(child_list.end()));
+                }
+            }
+        }
     }
 };
 
